@@ -7,6 +7,17 @@ from mcp_jenkins.jenkins import BuildRef
 from mcp_jenkins.server import mcp
 
 
+def _resolve_build_ref(ctx: Context, fullname: str, number: BuildRef | None) -> BuildRef:
+    if number is not None:
+        return number
+
+    last_build = jenkins(ctx).get_item(fullname=fullname, depth=1).lastBuild
+    if last_build is None or last_build.number is None:
+        raise ValueError(f'No build found for job: {fullname}')
+
+    return last_build.number
+
+
 @mcp.tool(tags=['read'])
 async def get_running_builds(ctx: Context) -> list[dict]:
     """Get all running builds from Jenkins
@@ -32,8 +43,7 @@ async def get_build(ctx: Context, fullname: str, number: BuildRef | None = None)
     Returns:
         The build info
     """
-    if number is None:
-        number = jenkins(ctx).get_item(fullname=fullname, depth=1).lastBuild.number
+    number = _resolve_build_ref(ctx, fullname, number)
 
     return jenkins(ctx).get_build(fullname=fullname, number=number).model_dump(exclude_none=True)
 
@@ -50,8 +60,7 @@ async def get_build_scripts(ctx: Context, fullname: str, number: BuildRef | None
     Returns:
         A list of scripts used in the build
     """
-    if number is None:
-        number = jenkins(ctx).get_item(fullname=fullname, depth=1).lastBuild.number
+    number = _resolve_build_ref(ctx, fullname, number)
 
     return jenkins(ctx).get_build_replay(fullname=fullname, number=number).scripts
 
@@ -78,10 +87,7 @@ async def get_build_console_output(
     Returns:
         The console output of the build
     """
-    if number is None:
-        number = jenkins(ctx).get_item(fullname=fullname, depth=1).lastBuild.number
-    if number is None:
-        raise ValueError(f'No build found for job: {fullname}')
+    number = _resolve_build_ref(ctx, fullname, number)
 
     return jenkins(ctx).get_build_console_output(
         fullname=fullname, number=number, pattern=pattern, offset=offset, limit=limit
@@ -100,8 +106,7 @@ async def get_build_test_report(ctx: Context, fullname: str, number: BuildRef | 
     Returns:
         The test report of the build
     """
-    if number is None:
-        number = jenkins(ctx).get_item(fullname=fullname, depth=1).lastBuild.number
+    number = _resolve_build_ref(ctx, fullname, number)
 
     return jenkins(ctx).get_build_test_report(fullname=fullname, number=number)
 
@@ -118,8 +123,7 @@ async def get_build_parameters(ctx: Context, fullname: str, number: BuildRef | N
     Returns:
         A dictionary of build parameter names and their values
     """
-    if number is None:
-        number = jenkins(ctx).get_item(fullname=fullname, depth=1).lastBuild.number
+    number = _resolve_build_ref(ctx, fullname, number)
 
     return jenkins(ctx).get_build_parameters(fullname=fullname, number=number)
 
@@ -147,8 +151,7 @@ async def get_all_build_artifacts(ctx: Context, fullname: str, number: BuildRef 
     Returns:
         A list of artifact metadata dicts with fileName, relativePath, and displayPath
     """
-    if number is None:
-        number = jenkins(ctx).get_item(fullname=fullname, depth=1).lastBuild.number
+    number = _resolve_build_ref(ctx, fullname, number)
 
     return [
         artifact.model_dump(exclude_none=True)
@@ -171,8 +174,7 @@ async def get_build_artifact(ctx: Context, fullname: str, relative_path: str, nu
     Returns:
         A dict with 'content' (str) and 'encoding' ('utf-8' or 'base64')
     """
-    if number is None:
-        number = jenkins(ctx).get_item(fullname=fullname, depth=1).lastBuild.number
+    number = _resolve_build_ref(ctx, fullname, number)
 
     content = jenkins(ctx).get_build_artifact(fullname=fullname, number=number, relative_path=relative_path)
 
@@ -197,7 +199,6 @@ async def get_build_artifact_url(
     Returns:
         The direct Jenkins URL of the artifact
     """
-    if number is None:
-        number = jenkins(ctx).get_item(fullname=fullname, depth=1).lastBuild.number
+    number = _resolve_build_ref(ctx, fullname, number)
 
     return jenkins(ctx).get_build_artifact_url(fullname=fullname, number=number, relative_path=relative_path)

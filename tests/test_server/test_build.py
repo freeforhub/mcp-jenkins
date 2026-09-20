@@ -272,3 +272,30 @@ async def test_read_build_tools_pass_permalink_to_client(
 
     mock_jenkins.get_item.assert_not_called()
     client.assert_called_once_with(**client_kwargs)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('tool', 'tool_kwargs', 'client_method'),
+    [
+        (build.get_build, {'fullname': 'job1'}, 'get_build'),
+        (build.get_build_scripts, {'fullname': 'job1'}, 'get_build_replay'),
+        (build.get_build_console_output, {'fullname': 'job1'}, 'get_build_console_output'),
+        (build.get_build_test_report, {'fullname': 'job1'}, 'get_build_test_report'),
+        (build.get_build_parameters, {'fullname': 'job1'}, 'get_build_parameters'),
+        (build.get_all_build_artifacts, {'fullname': 'job1'}, 'get_build_artifacts'),
+        (build.get_build_artifact, {'fullname': 'job1', 'relative_path': 'report.txt'}, 'get_build_artifact'),
+        (
+            build.get_build_artifact_url,
+            {'fullname': 'job1', 'relative_path': 'report.txt'},
+            'get_build_artifact_url',
+        ),
+    ],
+)
+async def test_read_build_tools_raise_when_job_has_no_build(mock_jenkins, mocker, tool, tool_kwargs, client_method):
+    mock_jenkins.get_item.return_value.lastBuild = None
+
+    with pytest.raises(ValueError, match='No build found for job: job1'):
+        await tool(mocker.Mock(), **tool_kwargs)
+
+    getattr(mock_jenkins, client_method).assert_not_called()
